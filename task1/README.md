@@ -49,3 +49,13 @@ ld data_rep.o -o data_rep
 ./hello
 ./data_rep
 ```
+
+## Screenshots
+
+### hello
+
+![hello output](screenshots/hello.png)
+
+### data_rep
+
+![data_rep output](screenshots/data_rep.png)
