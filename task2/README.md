@@ -1,4 +1,4 @@
-# Task 2 — Arithmetic & Logic Calculator
+# Task 2: Arithmetic & Logic Calculator
 
 Interactive x86-64 NASM program. Reads two digits from the keyboard, then lets the user run arithmetic and logical operations from a menu while displaying the CPU flags (CF, ZF, SF, OF) after each instruction.
 
