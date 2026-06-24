@@ -1,4 +1,4 @@
-# Task 1 — x86-64 Assembly Programs
+# Task 1: x86-64 Assembly Programs
 
 Two NASM programs: a Hello World demo and a data representation showcase.
 
