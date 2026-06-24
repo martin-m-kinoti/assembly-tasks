@@ -1,4 +1,4 @@
-# Task 3 — Mark Statistics
+# Task 3: Mark Statistics
 
 x86-64 NASM program that processes a twelve-element byte array of marks and prints total, average, highest, lowest, and grade-band counts. Demonstrates five addressing modes, explicit byte/word/dword size annotations, and loop-based array traversal.
 
