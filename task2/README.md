@@ -1,6 +1,6 @@
 # Task 2: Arithmetic & Logic Calculator
 
-Interactive x86-64 NASM program. Reads two digits from the keyboard, then lets the user run arithmetic and logical operations from a menu while displaying the CPU flags (CF, ZF, SF, OF) after each instruction.
+Interactive IA-32 (i386) NASM program. Reads two digits from the keyboard, then lets the user run arithmetic and logical operations from a menu while displaying the CPU flags (CF, ZF, SF, OF) after each instruction.
 
 ## Objectives
 
@@ -34,12 +34,12 @@ Or manually:
 
 ```bash
 # plain build
-nasm -f elf64 calc.asm -o calc.o
-ld calc.o -o calc
+nasm -f elf32 calc.asm -o calc.o
+ld -m elf_i386 calc.o -o calc
 
 # debug build (includes DWARF symbols for GDB)
-nasm -f elf64 -g -F dwarf calc.asm -o calc_dbg.o
-ld calc_dbg.o -o calc_dbg
+nasm -f elf32 -g -F dwarf calc.asm -o calc_dbg.o
+ld -m elf_i386 calc_dbg.o -o calc_dbg
 ```
 
 ### Run
@@ -74,9 +74,9 @@ Flags  : CF=0 ZF=0 SF=0 OF=0
 
 ## How flags are captured
 
-Immediately after each operation the program executes `pushfq` / `pop r12` to snapshot RFLAGS before any other instruction can change them. `show_flags` then reads individual bits with the `bt` instruction:
+Immediately after each operation the program executes `pushfd` / `pop esi` to snapshot EFLAGS before any other instruction can change them. `show_flags` then reads individual bits with the `bt` instruction:
 
-| Flag | RFLAGS bit | Set when… |
+| Flag | EFLAGS bit | Set when… |
 |------|-----------|-----------|
 | CF | 0 | Unsigned carry/borrow out of the MSB; or MUL/IMUL result does not fit in the lower half |
 | ZF | 6 | Result is exactly zero |
@@ -117,9 +117,9 @@ print ($eflags >> 11) & 1  # OF
 display $eflags
 
 # inspect operand values
-print /d $rax
-print /d $rbx
-print /x $rax              # hex view
+print /d $eax
+print /d $ebx
+print /x $eax              # hex view
 ```
 
 ### Example GDB walkthrough
@@ -136,8 +136,8 @@ Breakpoint 1, do_add ()
 (gdb) info registers eflags
 eflags  0x202  [ IF ]      # CF=0 ZF=0 SF=0 OF=0  (9+9=18, fits in a byte)
 (gdb) stepi                # execute  add al, bl
-(gdb) info registers eflags rax
-rax     0x12               # 18
+(gdb) info registers eflags eax
+eax     0x12               # 18
 eflags  0x202  [ IF ]      # flags unchanged — no overflow, no carry
 ```
 

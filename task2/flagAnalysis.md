@@ -50,12 +50,12 @@ fits entirely in `AL` (`AH = 0`).
   define `ZF`/`SF` meaningfully, but the simulator still reports whatever bits
   6/7 of `RFLAGS` happen to hold.
 
-## IMUL — signed `rax = rax * rbx`
+## IMUL — signed `eax = eax * ebx`
 
-- `1 * 3 = 3` → `CF=0 OF=0` (result fits in `rax` with no sign change beyond
+- `1 * 3 = 3` → `CF=0 OF=0` (result fits in `eax` with no sign change beyond
   what's representable).
-- `9 * 9 = 81` → still fits in 64 bits, so `CF=0 OF=0`. `IMUL rax, rbx` only
-  sets `CF`/`OF` when the full 128-bit product doesn't fit back into 64 bits,
+- `9 * 9 = 81` → still fits in 32 bits, so `CF=0 OF=0`. `IMUL eax, ebx` only
+  sets `CF`/`OF` when the full 64-bit product doesn't fit back into 32 bits,
   which is effectively unreachable with single-digit (0-9) inputs.
 
 ## DIV — unsigned `AL = AX / BL`, `AH = remainder`

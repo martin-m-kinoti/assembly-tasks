@@ -1,21 +1,21 @@
-; calc.asm – Arithmetic & Logic Calculator
+; calc.asm – Arithmetic & Logic Calculator (IA-32 / i386)
 ; Demonstrates ADD, SUB, INC, DEC, MUL, IMUL, DIV, IDIV,
 ;             AND, OR, XOR, NOT, TEST with live CF/ZF/SF/OF display.
 
 %macro PRINT 2
-    mov  rax, 1
-    mov  rdi, 1
-    mov  rsi, %1
-    mov  rdx, %2
-    syscall
+    mov  eax, 4         ; sys_write
+    mov  ebx, 1         ; fd = stdout
+    mov  ecx, %1
+    mov  edx, %2
+    int  0x80
 %endmacro
 
 %macro READ 2
-    mov  rax, 0
-    mov  rdi, 0
-    mov  rsi, %1
-    mov  rdx, %2
-    syscall
+    mov  eax, 3         ; sys_read
+    mov  ebx, 0         ; fd = stdin
+    mov  ecx, %1
+    mov  edx, %2
+    int  0x80
 %endmacro
 
 section .data
@@ -71,7 +71,7 @@ op_dec    db "DEC(a)", 0x0A
 op_dec_l  equ $ - op_dec
 op_mul    db "MUL  (unsigned, AX = AL * BL)", 0x0A
 op_mul_l  equ $ - op_mul
-op_imul   db "IMUL (signed,   rax = rax * rbx)", 0x0A
+op_imul   db "IMUL (signed,   eax = eax * ebx)", 0x0A
 op_imul_l equ $ - op_imul
 op_div    db "DIV  (unsigned, AL = AX / BL)", 0x0A
 op_div_l  equ $ - op_div
@@ -117,7 +117,7 @@ _start:
 .get_a:
     PRINT msg_p1, msg_p1_l
     READ  inbuf, 4
-    movzx rax, byte [inbuf]
+    movzx eax, byte [inbuf]
     cmp al, '0'
     jl  .bad_a
     cmp al, '9'
@@ -132,7 +132,7 @@ _start:
 .get_b:
     PRINT msg_p2, msg_p2_l
     READ  inbuf, 4
-    movzx rax, byte [inbuf]
+    movzx eax, byte [inbuf]
     cmp al, '0'
     jl  .bad_b
     cmp al, '9'
@@ -149,7 +149,7 @@ menu_loop:
     PRINT msg_menu,   msg_menu_l
     PRINT msg_choice, msg_choice_l
     READ  inbuf, 4
-    movzx rax, byte [inbuf]
+    movzx eax, byte [inbuf]
 
     cmp al, '1'
     je  do_add
@@ -183,101 +183,105 @@ menu_loop:
     jmp menu_loop
 
 ; ── arithmetic operations ──────────────────────────────────────────────────────
+; Flags are snapshotted into esi (pushfd/pop esi) and passed to show_flags via
+; edi. Both registers are left untouched by the PRINT/READ macros (which only
+; use eax/ebx/ecx/edx for the int 0x80 syscall), so the saved flags survive
+; the intervening call to show_result.
 
 do_add:
     PRINT msg_op, msg_op_l
     PRINT op_add, op_add_l
-    movzx rax, byte [num1]
-    movzx rbx, byte [num2]
+    movzx eax, byte [num1]
+    movzx ebx, byte [num2]
     add   al, bl
-    pushfq
-    pop   r12               ; snapshot flags before any other instruction
-    movzx rax, al
+    pushfd
+    pop   esi               ; snapshot flags before any other instruction
+    movzx eax, al
     call  show_result
-    mov   rdi, r12
+    mov   edi, esi
     call  show_flags
     jmp   menu_loop
 
 do_sub:
     PRINT msg_op, msg_op_l
     PRINT op_sub, op_sub_l
-    movzx rax, byte [num1]
-    movzx rbx, byte [num2]
+    movzx eax, byte [num1]
+    movzx ebx, byte [num2]
     sub   al, bl
-    pushfq
-    pop   r12
-    movsx rax, al           ; sign-extend so negatives print correctly
+    pushfd
+    pop   esi
+    movsx eax, al           ; sign-extend so negatives print correctly
     call  show_result
-    mov   rdi, r12
+    mov   edi, esi
     call  show_flags
     jmp   menu_loop
 
 do_inc:
     PRINT msg_op, msg_op_l
     PRINT op_inc, op_inc_l
-    movzx rax, byte [num1]
+    movzx eax, byte [num1]
     inc   al                ; INC does not modify CF
-    pushfq
-    pop   r12
-    movzx rax, al
+    pushfd
+    pop   esi
+    movzx eax, al
     call  show_result
-    mov   rdi, r12
+    mov   edi, esi
     call  show_flags
     jmp   menu_loop
 
 do_dec:
     PRINT msg_op, msg_op_l
     PRINT op_dec, op_dec_l
-    movzx rax, byte [num1]
+    movzx eax, byte [num1]
     dec   al                ; DEC does not modify CF
-    pushfq
-    pop   r12
-    movsx rax, al
+    pushfd
+    pop   esi
+    movsx eax, al
     call  show_result
-    mov   rdi, r12
+    mov   edi, esi
     call  show_flags
     jmp   menu_loop
 
 do_mul:
     PRINT msg_op, msg_op_l
     PRINT op_mul, op_mul_l
-    movzx rax, byte [num1]
-    movzx rbx, byte [num2]
+    movzx eax, byte [num1]
+    movzx ebx, byte [num2]
     mul   bl                ; unsigned: AX = AL * BL; sets CF/OF if AH != 0
-    pushfq
-    pop   r12
-    movzx rax, ax           ; result is in AX
+    pushfd
+    pop   esi
+    movzx eax, ax           ; result is in AX
     call  show_result
-    mov   rdi, r12
+    mov   edi, esi
     call  show_flags
     jmp   menu_loop
 
 do_imul:
     PRINT msg_op, msg_op_l
     PRINT op_imul, op_imul_l
-    movsx rax, byte [num1]
-    movsx rbx, byte [num2]
-    imul  rax, rbx          ; signed: rax = rax * rbx; sets CF/OF on overflow
-    pushfq
-    pop   r12
+    movsx eax, byte [num1]
+    movsx ebx, byte [num2]
+    imul  eax, ebx          ; signed: eax = eax * ebx; sets CF/OF on overflow
+    pushfd
+    pop   esi
     call  show_result
-    mov   rdi, r12
+    mov   edi, esi
     call  show_flags
     jmp   menu_loop
 
 do_div:
     PRINT msg_op, msg_op_l
     PRINT op_div, op_div_l
-    movzx rbx, byte [num2]
-    test  rbx, rbx
+    movzx ebx, byte [num2]
+    test  ebx, ebx
     jz    .zero
-    movzx rax, byte [num1]  ; AX = 0x00nn (high byte clear)
+    movzx eax, byte [num1]  ; AX = 0x00nn (high byte clear)
     div   bl                 ; unsigned: AL = AX / BL, AH = remainder
-    pushfq
-    pop   r12
-    movzx rax, al
+    pushfd
+    pop   esi
+    movzx eax, al
     call  show_result
-    mov   rdi, r12
+    mov   edi, esi
     call  show_flags
     jmp   menu_loop
 .zero:
@@ -287,16 +291,16 @@ do_div:
 do_idiv:
     PRINT msg_op, msg_op_l
     PRINT op_idiv, op_idiv_l
-    movzx rbx, byte [num2]
-    test  rbx, rbx
+    movzx ebx, byte [num2]
+    test  ebx, ebx
     jz    .zero
     movsx ax, byte [num1]   ; sign-extend byte → AX for 8-bit idiv
     idiv  bl                 ; signed: AL = AX / BL, AH = remainder
-    pushfq
-    pop   r12
-    movsx rax, al
+    pushfd
+    pop   esi
+    movsx eax, al
     call  show_result
-    mov   rdi, r12
+    mov   edi, esi
     call  show_flags
     jmp   menu_loop
 .zero:
@@ -308,131 +312,131 @@ do_idiv:
 do_and:
     PRINT msg_op, msg_op_l
     PRINT op_and, op_and_l
-    movzx rax, byte [num1]
-    movzx rbx, byte [num2]
-    and   rax, rbx          ; clears CF and OF; sets ZF/SF/PF
-    pushfq
-    pop   r12
+    movzx eax, byte [num1]
+    movzx ebx, byte [num2]
+    and   eax, ebx          ; clears CF and OF; sets ZF/SF/PF
+    pushfd
+    pop   esi
     call  show_result
-    mov   rdi, r12
+    mov   edi, esi
     call  show_flags
     jmp   menu_loop
 
 do_or:
     PRINT msg_op, msg_op_l
     PRINT op_or, op_or_l
-    movzx rax, byte [num1]
-    movzx rbx, byte [num2]
-    or    rax, rbx
-    pushfq
-    pop   r12
+    movzx eax, byte [num1]
+    movzx ebx, byte [num2]
+    or    eax, ebx
+    pushfd
+    pop   esi
     call  show_result
-    mov   rdi, r12
+    mov   edi, esi
     call  show_flags
     jmp   menu_loop
 
 do_xor:
     PRINT msg_op, msg_op_l
     PRINT op_xor, op_xor_l
-    movzx rax, byte [num1]
-    movzx rbx, byte [num2]
-    xor   rax, rbx
-    pushfq
-    pop   r12
+    movzx eax, byte [num1]
+    movzx ebx, byte [num2]
+    xor   eax, ebx
+    pushfd
+    pop   esi
     call  show_result
-    mov   rdi, r12
+    mov   edi, esi
     call  show_flags
     jmp   menu_loop
 
 do_not:
     PRINT msg_op, msg_op_l
     PRINT op_not, op_not_l
-    movzx rax, byte [num1]
+    movzx eax, byte [num1]
     not   al                ; NOT does not affect any flags
-    pushfq
-    pop   r12
-    movzx rax, al
+    pushfd
+    pop   esi
+    movzx eax, al
     call  show_result
-    mov   rdi, r12
+    mov   edi, esi
     call  show_flags
     jmp   menu_loop
 
 do_test:
     PRINT msg_op, msg_op_l
     PRINT op_test, op_test_l
-    movzx rax, byte [num1]
-    movzx rbx, byte [num2]
-    test  rax, rbx          ; sets ZF/SF/PF; clears CF,OF; result not stored
-    pushfq
-    pop   r12
-    and   rax, rbx          ; recompute same value for display only
+    movzx eax, byte [num1]
+    movzx ebx, byte [num2]
+    test  eax, ebx          ; sets ZF/SF/PF; clears CF,OF; result not stored
+    pushfd
+    pop   esi
+    and   eax, ebx          ; recompute same value for display only
     call  show_result
-    mov   rdi, r12
+    mov   edi, esi
     call  show_flags
     jmp   menu_loop
 
 do_quit:
     PRINT msg_bye, msg_bye_l
-    mov   rax, 60
-    xor   rdi, rdi
-    syscall
+    mov   eax, 1            ; sys_exit
+    xor   ebx, ebx
+    int   0x80
 
-; ── show_result(rax = signed 64-bit value) ─────────────────────────────────────
+; ── show_result(eax = signed 32-bit value) ─────────────────────────────────────
 ; Prints "Result : <decimal>\n"
 show_result:
-    push rbp
-    push rbx
-    push rcx
-    push rdx
-    push rax                ; save argument across PRINT call below
+    push ebx
+    push ecx
+    push edx
+    push esi                ; preserve caller's esi (holds pending saved flags)
+    push eax                ; save argument across PRINT call below
 
     PRINT msg_res, msg_res_l
 
-    pop  rax                ; restore argument
-    test rax, rax
+    pop  eax                ; restore argument
+    test eax, eax
     jns  .positive
-    push rax
+    push eax
     PRINT minus_sign, 1     ; print leading '-' for negative values
-    pop  rax
-    neg  rax
+    pop  eax
+    neg  eax
 .positive:
-    lea  rsi, [nbuf + 11]   ; build decimal string right-to-left
-    mov  byte [rsi], 0x0A
-    dec  rsi
+    lea  esi, [nbuf + 11]   ; build decimal string right-to-left
+    mov  byte [esi], 0x0A
+    dec  esi
     xor  ecx, ecx
-    mov  rbx, 10
+    mov  ebx, 10
 .loop:
     xor  edx, edx
-    div  rbx                ; rax = quotient, rdx = next digit
+    div  ebx                ; eax = quotient, edx = next digit
     add  dl, '0'
-    mov  [rsi], dl
-    dec  rsi
+    mov  [esi], dl
+    dec  esi
     inc  ecx
-    test rax, rax
+    test eax, eax
     jnz  .loop
 
-    inc  rsi                ; advance to first digit
+    inc  esi                ; advance to first digit
     inc  ecx                ; +1 to include the newline
-    mov  rax, 1
-    mov  rdi, 1
-    mov  rdx, rcx
-    syscall
+    mov  edx, ecx           ; length
+    mov  ecx, esi           ; buffer
+    mov  ebx, 1             ; fd = stdout
+    mov  eax, 4             ; sys_write
+    int  0x80
 
-    pop rdx
-    pop rcx
-    pop rbx
-    pop rbp
+    pop  esi
+    pop  edx
+    pop  ecx
+    pop  ebx
     ret
 
-; ── show_flags(rdi = saved rflags) ────────────────────────────────────────────
+; ── show_flags(edi = saved eflags) ────────────────────────────────────────────
 ; Prints "Flags  : CF=? ZF=? SF=? OF=?\n"
+; Operates directly on edi since it, unlike eax/ebx/ecx/edx, is left untouched
+; by the PRINT macro's int 0x80 syscall.
 show_flags:
-    push rbx
-    mov  rbx, rdi
-
     PRINT msg_flg, msg_flg_l
 
-    bt   rbx, 0             ; CF = bit 0
+    bt   edi, 0             ; CF = bit 0
     jc   .cf1
     PRINT s_cf0, 5
     jmp  .zf
@@ -440,7 +444,7 @@ show_flags:
     PRINT s_cf1, 5
 
 .zf:
-    bt   rbx, 6             ; ZF = bit 6
+    bt   edi, 6             ; ZF = bit 6
     jc   .zf1
     PRINT s_zf0, 5
     jmp  .sf
@@ -448,7 +452,7 @@ show_flags:
     PRINT s_zf1, 5
 
 .sf:
-    bt   rbx, 7             ; SF = bit 7
+    bt   edi, 7             ; SF = bit 7
     jc   .sf1
     PRINT s_sf0, 5
     jmp  .of
@@ -456,7 +460,7 @@ show_flags:
     PRINT s_sf1, 5
 
 .of:
-    bt   rbx, 11            ; OF = bit 11
+    bt   edi, 11            ; OF = bit 11
     jc   .of1
     PRINT s_of0, 4
     jmp  .done
@@ -465,5 +469,4 @@ show_flags:
 
 .done:
     PRINT newline, 1
-    pop  rbx
     ret
