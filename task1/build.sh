@@ -10,15 +10,15 @@ ld hello.o -o hello
 echo "    Done. Run with: ./hello"
 
 echo ""
-echo ">>> Building datatypes.asm ..."
-nasm -f elf64 datatypes.asm -o datatypes.o
-ld data_rep.o -o data_rep
-echo "    Done. Run with: ./datatypes"
+echo ">>> Building calc.asm ..."
+nasm -f elf64 calc.asm -o calc.o
+ld calc.o -o calc
+echo "    Done. Run with: ./calc"
 
 echo ""
 echo ">>> Running hello:"
 ./hello
 
 echo ""
-echo ">>> Running datatypes:"
-./datatypes
+echo ">>> Running calc:"
+./calc
